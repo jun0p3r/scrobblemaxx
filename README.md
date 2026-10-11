@@ -1,30 +1,45 @@
 # Scrobblemaxx
 
-A tiny macOS menu-bar app that scrobbles Apple Music to Last.fm.
-AI WAS USED IN THIS PROJECT! INTENDED AS A PERSONAL UTILITY!
+A small menu-bar app for macOS that scrobbles what you play in Apple Music to your Last.fm profile.
+
+> This app was generated with [Claude](https://claude.com/claude-code) (Anthropic's AI). It's a personal utility, so use it at your own risk.
+
+## What it does
+- Shows the current song over its album art, with a progress bar. The small line on the bar marks when the song will scrobble, and turns green once it has.
+- Scrobbles to Last.fm automatically, and keeps scrobbles to send later if you're offline.
+- Lets you fix wrong song info before or after it's scrobbled.
+- Lets you choose when a song counts as played, and how the panel looks.
 
 ## Setup
-1. Create a free API account at https://www.last.fm/api/account/create (the callback URL can be left blank) and note the **API key** and **shared secret**.
-2. Build: `./build.sh` → produces `build/Scrobblemaxx.app`.
-3. Run: `open "build/Scrobblemaxx.app"` (or drag it into /Applications).
-4. Click the ♪ icon → **Settings…**, paste the key and secret, click **Log In with Last.fm…**, approve in the browser, then click **Finish Login**.
 
-To start it at login: System Settings → General → Login Items → add the app.
+**1. Install Apple's developer tools** (only needed once). Open Terminal and run:
+```bash
+xcode-select --install
+```
 
-## How it works
-- Listens to Music.app's `com.apple.Music.playerInfo` notifications for track changes, and asks Music (via AppleScript) for the playback position and artwork. macOS shows a one-time "allow control of Music" prompt for this; if you decline, position is estimated and artwork comes from Last.fm / the iTunes Search API instead. The app never launches Music itself.
-- The panel shows the current track over its blurred cover art, with a full-track progress bar. The tick on the bar marks the scrobble point (hover it to see the time) and turns green once the track is scrobbled.
-- The ⌃ button opens a card with Edit, recent scrobbles, the scrobbling switch, Settings, your profile and Quit.
-- **Settings** (General / Appearance / Account):
-  - *Scrobble point*: 0–100% of the track in 1% steps (default 50%), optionally capped at 4 minutes. Below 50% works but goes against Last.fm's guidelines.
-  - *Appearance*: show/hide the artwork background, automatic or manual dimming, and blur amount.
-  - *Open at login*.
-- The menu-bar icon shows a note in a clockwise arrow while scrobbling and a slashed note when idle.
-- If Music access is denied, the elapsed time is only an estimate and the panel shows a link to System Settings → Privacy & Security → Automation to turn it on.
-- Sends "now playing" when a track starts, and scrobbles once it has *actually played* (pauses don't count) for half its length or 4 minutes, whichever comes first. Tracks ≤ 30 s are ignored.
-- Failed scrobbles are queued in `~/Library/Application Support/LastfmScrobbler/queue.json` and retried every minute.
-- **Editing:** open the ⌃ card and choose *Edit current track* or click a recent scrobble. Edits to the current or queued track change what gets sent; "Always apply this correction" remembers it for future plays (`corrections.json`). Last.fm's API can't edit sent scrobbles, so for those a corrected scrobble is sent with the original timestamp and your library page for that day opens so you can delete the wrong one.
-- API key, secret and session key are stored in the Keychain. Since the app is ad-hoc signed, macOS may ask again for Keychain and Music access after each rebuild — choose **Always Allow**.
+**2. Download and build the app:**
+```bash
+git clone https://github.com/jun0p3r/scrobblemaxx.git
+cd scrobblemaxx
+./build.sh
+open build/Scrobblemaxx.app
+```
+A music-note icon appears in your menu bar. You can drag `build/Scrobblemaxx.app` into your Applications folder if you like.
 
-## Hackintosh / AMFI-disabled Macs
-If your Mac boots with `amfi_get_out_of_my_way=0x1` (common with OCLP/NVIDIA setups), macOS never shows the "control Music" prompt for non-Apple apps, so the time stays estimated. Run `tools/grant-music-access.sh` once (Terminal needs Full Disk Access) to grant it manually. `build.sh` signs the app with an identifier-based requirement, so the grant survives rebuilds.
+**3. Get a Last.fm API key** (free):
+1. Go to https://www.last.fm/api/account/create and fill in the form. Any app name works, and you can leave the callback URL empty.
+2. Keep the page open. You'll need the **API key** and **Shared secret**.
+
+**4. Connect your account:**
+1. Click the menu-bar icon, then the **⌃** button, then the gear (**Settings**).
+2. In the **Account** tab, paste the API key and shared secret.
+3. Click **Log In with Last.fm…**, approve it in your browser, then come back and click **Finish Login**.
+
+**5. Play something in Music.** If macOS asks whether Scrobblemaxx can control Music, click **Allow**. This lets the app show the right playback time and album art.
+
+That's it. To start the app automatically, turn on **Open at login** in Settings → General.
+
+## Tips
+- **Fixing a scrobble:** click **⌃**, then *Edit Current Track* or one of your recent scrobbles. Last.fm doesn't let apps edit scrobbles that were already sent. For those, Scrobblemaxx sends a corrected one and opens your Last.fm library so you can delete the old one.
+- **The time looks wrong, or says "estimated":** the app isn't allowed to control Music. Turn it on in System Settings → Privacy & Security → Automation.
+- **Hackintosh users:** if the "control Music" popup never appears, run `tools/grant-music-access.sh` once. Your Terminal needs Full Disk Access first.
