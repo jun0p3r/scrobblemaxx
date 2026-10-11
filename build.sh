@@ -3,12 +3,12 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 swift build -c release
-BIN="$(swift build -c release --show-bin-path)/LastfmScrobbler"
+BIN="$(swift build -c release --show-bin-path)/Scrobblemaxx"
 
-APP="build/Last.fm Scrobbler.app"
+APP="build/Scrobblemaxx.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
-cp "$BIN" "$APP/Contents/MacOS/LastfmScrobbler"
+cp "$BIN" "$APP/Contents/MacOS/Scrobblemaxx"
 cp Info.plist "$APP/Contents/Info.plist"
 
 # App icon: build an .icns from the 1024px source PNG.

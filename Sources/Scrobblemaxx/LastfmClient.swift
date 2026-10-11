@@ -82,7 +82,7 @@ struct LastfmClient {
             getComps.queryItems = comps.queryItems
             request = URLRequest(url: getComps.url!)
         }
-        request.setValue("LastfmScrobbler/1.0 (macOS menu bar)", forHTTPHeaderField: "User-Agent")
+        request.setValue("Scrobblemaxx/1.0 (macOS menu bar)", forHTTPHeaderField: "User-Agent")
         request.timeoutInterval = 20
 
         let (data, _) = try await URLSession.shared.data(for: request)

@@ -160,7 +160,7 @@ struct MenuView: View {
                     }
                     .buttonStyle(.link)
                     .foregroundStyle(.secondary)
-                    .help("Open Privacy & Security → Automation and turn on Music for Last.fm Scrobbler")
+                    .help("Open Privacy & Security → Automation and turn on Music for Scrobblemaxx")
                 }
             }
         }
@@ -309,7 +309,7 @@ private struct OptionsCard: View {
                     if let url = engine.profileURL { NSWorkspace.shared.open(url) }
                 }
                 .disabled(engine.profileURL == nil)
-                IconButton(icon: "power", label: "Quit Last.fm Scrobbler") { NSApp.terminate(nil) }
+                IconButton(icon: "power", label: "Quit Scrobblemaxx") { NSApp.terminate(nil) }
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 2)

@@ -461,6 +461,7 @@ final class ScrobbleEngine: ObservableObject {
     // MARK: Persistence
 
     private static let dataDir: URL = {
+        // Folder keeps the pre-rename name so existing history/queue/corrections carry over.
         let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("LastfmScrobbler", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)

@@ -2,9 +2,9 @@
 import PackageDescription
 
 let package = Package(
-    name: "LastfmScrobbler",
+    name: "Scrobblemaxx",
     platforms: [.macOS(.v13)],
     targets: [
-        .executableTarget(name: "LastfmScrobbler", path: "Sources/LastfmScrobbler")
+        .executableTarget(name: "Scrobblemaxx", path: "Sources/Scrobblemaxx")
     ]
 )

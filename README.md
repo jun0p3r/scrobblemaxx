@@ -1,12 +1,12 @@
-# Last.fm Scrobbler (menu bar)
+# Scrobblemaxx
 
 A tiny macOS menu-bar app that scrobbles Apple Music to Last.fm.
 AI WAS USED IN THIS PROJECT! INTENDED AS A PERSONAL UTILITY!
 
 ## Setup
 1. Create a free API account at https://www.last.fm/api/account/create (the callback URL can be left blank) and note the **API key** and **shared secret**.
-2. Build: `./build.sh` → produces `build/Last.fm Scrobbler.app`.
-3. Run: `open "build/Last.fm Scrobbler.app"` (or drag it into /Applications).
+2. Build: `./build.sh` → produces `build/Scrobblemaxx.app`.
+3. Run: `open "build/Scrobblemaxx.app"` (or drag it into /Applications).
 4. Click the ♪ icon → **Settings…**, paste the key and secret, click **Log In with Last.fm…**, approve in the browser, then click **Finish Login**.
 
 To start it at login: System Settings → General → Login Items → add the app.

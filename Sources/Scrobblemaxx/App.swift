@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 @main
-struct LastfmScrobblerApp: App {
+struct ScrobblemaxxApp: App {
     @StateObject private var engine = ScrobbleEngine()
 
     var body: some Scene {

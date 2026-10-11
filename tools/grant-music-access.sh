@@ -1,5 +1,5 @@
 #!/bin/bash
-# Grants "Last.fm Scrobbler" permission to control Music (Privacy & Security → Automation)
+# Grants "Scrobblemaxx" permission to control Music (Privacy & Security → Automation)
 # by writing the same record macOS creates when you click "Allow" on the prompt.
 #
 # Only needed on Macs where macOS never shows that prompt, e.g. Hackintosh/OCLP setups booted
@@ -39,5 +39,5 @@ fi
 # Make the privacy daemon re-read the database.
 killall tccd 2>/dev/null || true
 
-echo "Done: Last.fm Scrobbler may now control Music."
-echo "Restart the app:  pkill -x LastfmScrobbler; open \"$(cd "$(dirname "$0")/.." && pwd)/build/Last.fm Scrobbler.app\""
+echo "Done: Scrobblemaxx may now control Music."
+echo "Restart the app:  pkill -x Scrobblemaxx; open \"$(cd "$(dirname "$0")/.." && pwd)/build/Scrobblemaxx.app\""
