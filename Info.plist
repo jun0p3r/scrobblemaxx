@@ -6,6 +6,8 @@
 	<string>Last.fm Scrobbler</string>
 	<key>CFBundleExecutable</key>
 	<string>LastfmScrobbler</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.fr.LastfmScrobbler</string>
 	<key>CFBundleName</key>

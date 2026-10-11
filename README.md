@@ -19,8 +19,12 @@ To start it at login: System Settings → General → Login Items → add the ap
   - *Scrobble point*: 0–100% of the track in 1% steps (default 50%), optionally capped at 4 minutes. Below 50% works but goes against Last.fm's guidelines.
   - *Appearance*: show/hide the artwork background, automatic or manual dimming, and blur amount.
   - *Open at login*.
+- The menu-bar icon shows a note in a clockwise arrow while scrobbling and a slashed note when idle.
 - If Music access is denied, the elapsed time is only an estimate and the panel shows a link to System Settings → Privacy & Security → Automation to turn it on.
 - Sends "now playing" when a track starts, and scrobbles once it has *actually played* (pauses don't count) for half its length or 4 minutes, whichever comes first. Tracks ≤ 30 s are ignored.
 - Failed scrobbles are queued in `~/Library/Application Support/LastfmScrobbler/queue.json` and retried every minute.
 - **Editing:** open the ⌃ card and choose *Edit current track* or click a recent scrobble. Edits to the current or queued track change what gets sent; "Always apply this correction" remembers it for future plays (`corrections.json`). Last.fm's API can't edit sent scrobbles, so for those a corrected scrobble is sent with the original timestamp and your library page for that day opens so you can delete the wrong one.
 - API key, secret and session key are stored in the Keychain. Since the app is ad-hoc signed, macOS may ask again for Keychain and Music access after each rebuild — choose **Always Allow**.
+
+## Hackintosh / AMFI-disabled Macs
+If your Mac boots with `amfi_get_out_of_my_way=0x1` (common with OCLP/NVIDIA setups), macOS never shows the "control Music" prompt for non-Apple apps, so the time stays estimated. Run `tools/grant-music-access.sh` once (Terminal needs Full Disk Access) to grant it manually. `build.sh` signs the app with an identifier-based requirement, so the grant survives rebuilds.
