@@ -1,0 +1,46 @@
+name: Build
+
+# Every push builds both versions (downloadable from the run's "Artifacts").
+# Pushing a tag like v1.0 also publishes them as a GitHub Release.
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Apple Silicon and Intel apps
+        run: |
+          mkdir -p dist
+          for arch in arm64 x86_64; do
+            ./build.sh "$arch"
+            case "$arch" in
+              arm64)  name="Scrobblemaxx-AppleSilicon" ;;
+              x86_64) name="Scrobblemaxx-Intel" ;;
+            esac
+            ditto -c -k --keepParent build/Scrobblemaxx.app "dist/$name.zip"
+          done
+          ls -lh dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Scrobblemaxx
+          path: dist/*.zip
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/*.zip \
+            --title "Scrobblemaxx $GITHUB_REF_NAME" \
+            --notes "Download **Scrobblemaxx-AppleSilicon.zip** for M-series Macs or **Scrobblemaxx-Intel.zip** for Intel Macs. See the README for first-launch steps."

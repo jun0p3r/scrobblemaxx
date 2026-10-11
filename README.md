@@ -12,6 +12,10 @@ A small menu-bar app for macOS that scrobbles what you play in Apple Music to yo
 
 ## Setup
 
+**Quick option: download it.** Grab the zip for your Mac from the [Releases page](https://github.com/jun0p3r/scrobblemaxx/releases): *AppleSilicon* for M1/M2/M3/M4 Macs, *Intel* for older Macs. Unzip it and move the app to Applications. The first time you open it, macOS will block it because it isn't from an identified developer. Go to System Settings → Privacy & Security, scroll down, and click **Open Anyway**. Then skip to step 3.
+
+**Or build it yourself:**
+
 **1. Install Apple's developer tools** (only needed once). Open Terminal and run:
 ```bash
 xcode-select --install

@@ -2,8 +2,12 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-swift build -c release
-BIN="$(swift build -c release --show-bin-path)/Scrobblemaxx"
+# Usage: ./build.sh [arm64|x86_64]   (default: this Mac's architecture)
+ARCH_FLAGS=()
+if [ -n "${1:-}" ]; then ARCH_FLAGS=(--arch "$1"); fi
+
+swift build -c release "${ARCH_FLAGS[@]+"${ARCH_FLAGS[@]}"}"
+BIN="$(swift build -c release "${ARCH_FLAGS[@]+"${ARCH_FLAGS[@]}"}" --show-bin-path)/Scrobblemaxx"
 
 APP="build/Scrobblemaxx.app"
 rm -rf "$APP"
