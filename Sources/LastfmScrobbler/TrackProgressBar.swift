@@ -30,6 +30,8 @@ struct TrackProgressBar: View {
                             .contentShape(Rectangle())
                             .offset(x: w * marker - 11)
                             .onHover { h in withAnimation(.easeOut(duration: 0.12)) { hoveringMarker = h } }
+                            .accessibilityElement()
+                            .accessibilityLabel(scrobbled ? "Scrobbled" : "Scrobbles at \(Self.format(marker * duration))")
                         if hoveringMarker {
                             tooltip(marker: marker)
                                 .fixedSize()
@@ -51,8 +53,8 @@ struct TrackProgressBar: View {
                 Spacer()
                 Text(Self.format(duration))
             }
-            .font(.caption2.monospacedDigit())
-            .foregroundStyle(Color.white.opacity(0.7))
+            .font(.caption.monospacedDigit())
+            .foregroundStyle(.secondary)
         }
     }
 
@@ -64,7 +66,7 @@ struct TrackProgressBar: View {
                 Text("Scrobbles at \(Self.format(marker * duration))")
             }
         }
-        .font(.system(size: 11, weight: .medium))
+        .font(.caption.weight(.medium))
         .foregroundStyle(scrobbled ? Color.green : Color.white)
         .frame(width: 110)
         .padding(.vertical, 3)

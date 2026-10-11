@@ -1,9 +1,25 @@
 import SwiftUI
 
-/// Square "now playing" card: blurred cover behind, track info on top,
-/// progress in the middle, account + dropdown at the bottom.
+/// Appearance preferences shared by the panel and the Appearance settings tab.
+enum AppearanceKey {
+    static let showArtwork = "showArtworkBackground"
+    static let autoDim = "autoDim"
+    static let dimAmount = "dimAmount"
+    static let blurRadius = "blurRadius"
+}
+
+/// Square "now playing" panel: blurred cover behind, track info on top,
+/// progress in the middle, account + options card at the bottom.
 struct MenuView: View {
     @EnvironmentObject var engine: ScrobbleEngine
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    @AppStorage(AppearanceKey.showArtwork) private var showArtwork = true
+    @AppStorage(AppearanceKey.autoDim) private var autoDim = true
+    @AppStorage(AppearanceKey.dimAmount) private var dimAmount = 0.5
+    @AppStorage(AppearanceKey.blurRadius) private var blurRadius = 6.0
+
     @State private var showingCard = false
 
     static let size: CGFloat = 340
@@ -18,103 +34,135 @@ struct MenuView: View {
                 progress
                     .opacity(showingCard ? 0 : 1)
                 Spacer(minLength: 12)
-                if !engine.status.isEmpty || !engine.queue.isEmpty {
+                if !showingCard, !engine.status.isEmpty || !engine.queue.isEmpty {
                     statusLine.padding(.bottom, 8)
                 }
                 bottomBar
             }
-            .padding(22)
+            .padding(20)
 
             if showingCard {
-                // Tap outside the card to dismiss.
+                // Click outside the card to dismiss.
                 Color.black.opacity(0.3)
                     .contentShape(Rectangle())
                     .onTapGesture { toggleCard() }
+                    .accessibilityHidden(true)
                     .transition(.opacity)
                 OptionsCard(close: { toggleCard() })
-                    .padding(.horizontal, 14)
-                    .padding(.top, 14)
-                    .padding(.bottom, 64)
+                    .padding(.horizontal, 12)
+                    .padding(.top, 12)
+                    .padding(.bottom, 62)
                     .frame(maxHeight: .infinity, alignment: .bottom)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
             }
         }
         .frame(width: Self.size, height: Self.size)
-        .foregroundStyle(.white)
         .environment(\.colorScheme, .dark)
-        .onAppear { engine.loadAvatarIfNeeded() }
+        .onAppear { engine.panelOpened() }
         .onDisappear { showingCard = false }
     }
 
     // MARK: Background
 
+    private var useArtwork: Bool { showArtwork && !reduceTransparency && engine.artwork != nil }
+
     private var background: some View {
         ZStack {
-            if let art = engine.artwork {
+            if useArtwork, let art = engine.artwork {
                 Image(nsImage: art)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
                     .frame(width: Self.size, height: Self.size)
-                    .blur(radius: 6, opaque: true)
+                    .blur(radius: blurRadius, opaque: true)
                     .clipped()
             } else {
-                LinearGradient(colors: [Color(white: 0.22), Color(white: 0.08)],
-                               startPoint: .topLeading, endPoint: .bottomTrailing)
+                Color(white: 0.13)
             }
-            // Bright covers get a heavier scrim so white text stays readable.
-            let lum = engine.artwork == nil ? 0 : engine.artworkLuminance
-            LinearGradient(colors: [.black.opacity(0.45 + 0.35 * lum),
-                                    .black.opacity(0.30 + 0.35 * lum),
-                                    .black.opacity(0.85)],
-                           startPoint: .top, endPoint: .bottom)
+            if useArtwork {
+                LinearGradient(colors: scrimColors, startPoint: .top, endPoint: .bottom)
+            }
         }
+        .accessibilityHidden(true)
+    }
+
+    /// Darker at the top (title) and bottom (account row) so white text stays readable.
+    private var scrimColors: [Color] {
+        if autoDim {
+            // Bright covers get a heavier scrim.
+            let lum = engine.artworkLuminance
+            return [.black.opacity(0.45 + 0.35 * lum), .black.opacity(0.30 + 0.35 * lum), .black.opacity(0.85)]
+        }
+        return [.black.opacity(dimAmount), .black.opacity(dimAmount * 0.8), .black.opacity(min(1, dimAmount + 0.35))]
     }
 
     // MARK: Track info
 
     @ViewBuilder private var trackInfo: some View {
         if let track = engine.currentTrack {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(track.title)
-                    .font(.system(size: 26, weight: .semibold))
+                    .font(.system(.largeTitle).weight(.semibold))
                     .lineLimit(2)
-                    .minimumScaleFactor(0.7)
+                    .minimumScaleFactor(0.65)
                 Text("by \(track.artist)")
-                    .font(.system(size: 19, weight: .light))
+                    .font(.system(.title2).weight(.light))
                     .lineLimit(1)
                 if let album = track.album, !album.isEmpty {
                     Text("on \(album)")
-                        .font(.system(size: 19, weight: .light))
+                        .font(.system(.title2).weight(.light))
                         .lineLimit(1)
                 }
-                if engine.playerState != .playing || !engine.enabled {
-                    Text(!engine.enabled ? "Scrobbling paused" : engine.playerState == .paused ? "Paused" : "Stopped")
+                if let state = stateLabel {
+                    Text(state)
                         .font(.caption.weight(.medium))
-                        .foregroundStyle(Color.white.opacity(0.6))
+                        .foregroundStyle(.secondary)
                         .padding(.top, 4)
                 }
             }
-            .shadow(color: .black.opacity(0.6), radius: 4)
-            .shadow(color: .black.opacity(0.3), radius: 1)
+            .foregroundStyle(.primary)
+            .shadow(color: .black.opacity(useArtwork ? 0.6 : 0), radius: 4)
+            .accessibilityElement(children: .combine)
         } else {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Nothing playing")
-                    .font(.system(size: 26, weight: .semibold))
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Nothing Playing")
+                    .font(.system(.largeTitle).weight(.semibold))
                 Text("Play something in Music")
-                    .font(.system(size: 17, weight: .light))
-                    .foregroundStyle(Color.white.opacity(0.7))
+                    .font(.system(.title3).weight(.light))
+                    .foregroundStyle(.secondary)
             }
+        }
+    }
+
+    private var stateLabel: String? {
+        if !engine.enabled { return "Scrobbling paused" }
+        switch engine.playerState {
+        case .playing: return nil
+        case .paused: return "Paused"
+        case .stopped: return "Stopped"
         }
     }
 
     @ViewBuilder private var progress: some View {
         if let track = engine.currentTrack, track.duration > 0 {
-            TrackProgressBar(position: engine.position,
-                             duration: track.duration,
-                             marker: engine.thresholdFraction,
-                             scrobbled: engine.currentScrobbled)
-                .opacity(engine.enabled ? 1 : 0.5)
-                .shadow(color: .black.opacity(0.5), radius: 3)
+            VStack(alignment: .leading, spacing: 8) {
+                TrackProgressBar(position: engine.position,
+                                 duration: track.duration,
+                                 marker: engine.thresholdFraction,
+                                 scrobbled: engine.currentScrobbled)
+                    .opacity(engine.enabled ? 1 : 0.5)
+                    .shadow(color: .black.opacity(useArtwork ? 0.5 : 0), radius: 3)
+                if engine.musicAccess == .denied {
+                    Button {
+                        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation")!)
+                    } label: {
+                        Label("Time is estimated. Allow access to Music…", systemImage: "exclamationmark.circle")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.link)
+                    .foregroundStyle(.secondary)
+                    .help("Open Privacy & Security → Automation and turn on Music for Last.fm Scrobbler")
+                }
+            }
         }
     }
 
@@ -128,7 +176,7 @@ struct MenuView: View {
             }
         }
         .font(.caption)
-        .foregroundStyle(Color.white.opacity(0.7))
+        .foregroundStyle(.secondary)
     }
 
     // MARK: Bottom bar
@@ -138,30 +186,28 @@ struct MenuView: View {
             if let user = engine.credentials.username {
                 avatar
                 Text(user)
-                    .font(.system(size: 17, weight: .medium))
+                    .font(.headline)
                     .lineLimit(1)
             } else {
-                Button { AuxWindow.showSettings(engine) } label: {
-                    Label("Log in to Last.fm", systemImage: "person.crop.circle.badge.plus")
-                        .font(.system(size: 15, weight: .medium))
+                Button { AuxWindow.showSettings(engine, tab: .account) } label: {
+                    Label("Log In to Last.fm…", systemImage: "person.crop.circle.badge.plus")
+                        .font(.headline)
                 }
                 .buttonStyle(.plain)
             }
             Spacer()
             Button(action: toggleCard) {
                 Image(systemName: "chevron.up.circle.fill")
-                    .font(.system(size: 24))
+                    .font(.title)
+                    .symbolRenderingMode(.hierarchical)
                     .rotationEffect(.degrees(showingCard ? 180 : 0))
                     .contentShape(Circle())
             }
             .buttonStyle(.plain)
-            .help("Edit, settings and more")
+            .help("Edit, recent scrobbles and settings")
+            .accessibilityLabel(showingCard ? "Hide options" : "Show options")
         }
         .zIndex(1)
-    }
-
-    private func toggleCard() {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { showingCard.toggle() }
     }
 
     private var avatar: some View {
@@ -170,12 +216,21 @@ struct MenuView: View {
                 Image(nsImage: img).resizable().aspectRatio(contentMode: .fill)
             } else {
                 Image(systemName: "person.crop.circle.fill").resizable()
-                    .foregroundStyle(Color.white.opacity(0.7))
+                    .foregroundStyle(.secondary)
             }
         }
-        .frame(width: 30, height: 30)
+        .frame(width: 28, height: 28)
         .clipShape(Circle())
-        .overlay(Circle().strokeBorder(Color.white.opacity(0.25)))
+        .overlay(Circle().strokeBorder(.white.opacity(0.2)))
+        .accessibilityHidden(true)
+    }
+
+    private func toggleCard() {
+        if reduceMotion {
+            showingCard.toggle()
+        } else {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { showingCard.toggle() }
+        }
     }
 
     static func icon(for status: HistoryItem.Status) -> String {
@@ -187,130 +242,151 @@ struct MenuView: View {
         case .rejected: return "xmark.octagon"
         }
     }
+
+    static func description(for status: HistoryItem.Status) -> String {
+        switch status {
+        case .queued: return "Waiting to send"
+        case .sent: return "Scrobbled"
+        case .resent: return "Correction sent"
+        case .ignored: return "Ignored by Last.fm"
+        case .rejected: return "Rejected by Last.fm"
+        }
+    }
 }
 
 // MARK: - Options card
 
 private struct OptionsCard: View {
     @EnvironmentObject var engine: ScrobbleEngine
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     let close: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            CardRow(icon: "pencil", title: "Edit current track") {
-                close()
+        VStack(alignment: .leading, spacing: 2) {
+            MenuRow(close: close) {
                 AuxWindow.showEdit(.current, engine: engine)
+            } label: {
+                Label("Edit Current Track…", systemImage: "pencil")
             }
             .disabled(engine.currentTrack == nil)
-            .opacity(engine.currentTrack == nil ? 0.4 : 1)
 
-            divider
+            Divider().padding(.vertical, 4).padding(.horizontal, 6)
 
-            Text("RECENT")
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(Color.white.opacity(0.5))
+            Text("Recent Scrobbles")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
                 .padding(.horizontal, 8)
+                .padding(.bottom, 2)
             if engine.history.isEmpty {
                 Text("Nothing scrobbled yet")
-                    .font(.system(size: 12, weight: .light))
-                    .foregroundStyle(Color.white.opacity(0.6))
+                    .font(.callout)
+                    .foregroundStyle(.tertiary)
                     .padding(.horizontal, 8)
-                    .padding(.vertical, 6)
+                    .padding(.vertical, 4)
             }
             ForEach(engine.history.prefix(3)) { item in
-                RecentRow(item: item) {
-                    close()
+                MenuRow(close: close) {
                     AuxWindow.showEdit(.history(item.id), engine: engine)
+                } label: {
+                    RecentRowLabel(item: item)
                 }
+                .help("Edit this scrobble")
             }
 
-            divider
+            Divider().padding(.vertical, 4).padding(.horizontal, 6)
 
-            HStack(spacing: 8) {
-                Toggle(isOn: $engine.enabled) {
-                    Text("Scrobbling").font(.system(size: 12))
-                }
-                .toggleStyle(.switch)
-                .controlSize(.mini)
+            HStack(spacing: 6) {
+                Toggle("Scrobbling", isOn: $engine.enabled)
+                    .toggleStyle(.switch)
+                    .controlSize(.mini)
+                    .font(.callout)
                 Spacer()
-                IconButton(icon: "gearshape", help: "Settings") {
+                IconButton(icon: "gearshape", label: "Settings") {
                     close()
                     AuxWindow.showSettings(engine)
                 }
-                IconButton(icon: "person", help: "Open Last.fm profile") {
+                IconButton(icon: "person.crop.circle", label: "Open Last.fm Profile") {
                     if let url = engine.profileURL { NSWorkspace.shared.open(url) }
                 }
                 .disabled(engine.profileURL == nil)
-                IconButton(icon: "power", help: "Quit") { NSApp.terminate(nil) }
-            }
-            .padding(.leading, 8)
-        }
-        .padding(10)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .background(Color.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color.white.opacity(0.12)))
-        .shadow(color: .black.opacity(0.4), radius: 16, y: 6)
-    }
-
-    private var divider: some View {
-        Rectangle().fill(Color.white.opacity(0.1)).frame(height: 1).padding(.horizontal, 4)
-    }
-}
-
-/// A full-width row with a hover highlight.
-private struct CardRow: View {
-    let icon: String
-    let title: String
-    let action: () -> Void
-    @State private var hovering = false
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 10) {
-                Image(systemName: icon).frame(width: 18)
-                Text(title).font(.system(size: 13))
-                Spacer()
+                IconButton(icon: "power", label: "Quit Last.fm Scrobbler") { NSApp.terminate(nil) }
             }
             .padding(.horizontal, 8)
-            .padding(.vertical, 6)
-            .background(hovering ? Color.white.opacity(0.1) : .clear, in: RoundedRectangle(cornerRadius: 8))
-            .contentShape(Rectangle())
+            .padding(.vertical, 2)
         }
-        .buttonStyle(.plain)
-        .onHover { hovering = $0 }
+        .padding(6)
+        .background(cardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(.white.opacity(0.12)))
+        .shadow(color: .black.opacity(0.35), radius: 14, y: 6)
+    }
+
+    @ViewBuilder private var cardBackground: some View {
+        if reduceTransparency {
+            Color(nsColor: .windowBackgroundColor)
+        } else {
+            Rectangle().fill(.regularMaterial)
+        }
     }
 }
 
-private struct RecentRow: View {
+/// A menu-style row: accent-colour highlight on hover, like a native menu item.
+private struct MenuRow<Label: View>: View {
+    let close: () -> Void
+    let action: () -> Void
+    @ViewBuilder let label: Label
+    @Environment(\.isEnabled) private var isEnabled
+    @State private var hovering = false
+
+    init(close: @escaping () -> Void, action: @escaping () -> Void, @ViewBuilder label: () -> Label) {
+        self.close = close
+        self.action = action
+        self.label = label()
+    }
+
+    var body: some View {
+        Button {
+            close()
+            action()
+        } label: {
+            label
+                .font(.body)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .foregroundStyle(highlighted ? .white : .primary)
+                .background(highlighted ? Color.accentColor : .clear,
+                            in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .opacity(isEnabled ? 1 : 0.4)
+        .onHover { hovering = $0 }
+    }
+
+    private var highlighted: Bool { hovering && isEnabled }
+}
+
+private struct RecentRowLabel: View {
     let item: HistoryItem
-    let action: () -> Void
-    @State private var hovering = false
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 10) {
-                thumb
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(item.scrobble.track.title)
-                        .font(.system(size: 12, weight: .medium)).lineLimit(1)
-                    Text(item.scrobble.track.artist)
-                        .font(.system(size: 11, weight: .light))
-                        .foregroundStyle(Color.white.opacity(0.7)).lineLimit(1)
-                }
-                Spacer(minLength: 4)
-                Image(systemName: hovering ? "pencil" : MenuView.icon(for: item.status))
-                    .font(.system(size: 11))
-                    .foregroundStyle(hovering ? Color.white : statusColor)
-                    .frame(width: 16)
+        HStack(spacing: 8) {
+            thumb
+            VStack(alignment: .leading, spacing: 0) {
+                Text(item.scrobble.track.title).lineLimit(1)
+                Text(item.scrobble.track.artist)
+                    .font(.caption)
+                    .opacity(0.7)
+                    .lineLimit(1)
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(hovering ? Color.white.opacity(0.1) : .clear, in: RoundedRectangle(cornerRadius: 8))
-            .contentShape(Rectangle())
+            Spacer(minLength: 4)
+            Image(systemName: MenuView.icon(for: item.status))
+                .font(.caption)
+                .opacity(0.8)
+                .frame(width: 16)
+                .accessibilityLabel(MenuView.description(for: item.status))
         }
-        .buttonStyle(.plain)
-        .onHover { hovering = $0 }
-        .help("Edit this scrobble")
     }
 
     private var thumb: some View {
@@ -320,41 +396,36 @@ private struct RecentRow: View {
             } else {
                 ZStack {
                     Color.white.opacity(0.1)
-                    Image(systemName: "music.note").font(.system(size: 11)).foregroundStyle(Color.white.opacity(0.6))
+                    Image(systemName: "music.note").font(.caption).opacity(0.6)
                 }
             }
         }
         .frame(width: 26, height: 26)
-        .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
-    }
-
-    private var statusColor: Color {
-        switch item.status {
-        case .queued: return .white.opacity(0.6)
-        case .sent: return .green
-        case .resent: return .blue
-        case .ignored: return .orange
-        case .rejected: return .red
-        }
+        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+        .accessibilityHidden(true)
     }
 }
 
 private struct IconButton: View {
     let icon: String
-    let help: String
+    let label: String
     let action: () -> Void
+    @Environment(\.isEnabled) private var isEnabled
     @State private var hovering = false
 
     var body: some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.system(size: 13))
-                .frame(width: 30, height: 26)
-                .background(Color.white.opacity(hovering ? 0.18 : 0.08), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .font(.body)
+                .frame(width: 28, height: 24)
+                .background(.white.opacity(hovering && isEnabled ? 0.15 : 0),
+                            in: RoundedRectangle(cornerRadius: 5, style: .continuous))
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .opacity(isEnabled ? 1 : 0.4)
         .onHover { hovering = $0 }
-        .help(help)
+        .help(label)
+        .accessibilityLabel(label)
     }
 }

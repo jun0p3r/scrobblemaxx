@@ -15,7 +15,11 @@ To start it at login: System Settings → General → Login Items → add the ap
 - Listens to Music.app's `com.apple.Music.playerInfo` notifications for track changes, and asks Music (via AppleScript) for the playback position and artwork. macOS shows a one-time "allow control of Music" prompt for this; if you decline, position is estimated and artwork comes from Last.fm / the iTunes Search API instead. The app never launches Music itself.
 - The panel shows the current track over its blurred cover art, with a full-track progress bar. The tick on the bar marks the scrobble point (hover it to see the time) and turns green once the track is scrobbled.
 - The ⌃ button opens a card with Edit, recent scrobbles, the scrobbling switch, Settings, your profile and Quit.
-- **Scrobble point:** set in Settings as a percentage of the track (50–100%, default 50%), optionally capped at 4 minutes. Last.fm doesn't allow less than half.
+- **Settings** (General / Appearance / Account):
+  - *Scrobble point*: 0–100% of the track in 1% steps (default 50%), optionally capped at 4 minutes. Below 50% works but goes against Last.fm's guidelines.
+  - *Appearance*: show/hide the artwork background, automatic or manual dimming, and blur amount.
+  - *Open at login*.
+- If Music access is denied, the elapsed time is only an estimate and the panel shows a link to System Settings → Privacy & Security → Automation to turn it on.
 - Sends "now playing" when a track starts, and scrobbles once it has *actually played* (pauses don't count) for half its length or 4 minutes, whichever comes first. Tracks ≤ 30 s are ignored.
 - Failed scrobbles are queued in `~/Library/Application Support/LastfmScrobbler/queue.json` and retried every minute.
 - **Editing:** open the ⌃ card and choose *Edit current track* or click a recent scrobble. Edits to the current or queued track change what gets sent; "Always apply this correction" remembers it for future plays (`corrections.json`). Last.fm's API can't edit sent scrobbles, so for those a corrected scrobble is sent with the original timestamp and your library page for that day opens so you can delete the wrong one.

@@ -31,7 +31,7 @@ final class ScrobbleEngine: ObservableObject {
     @Published var enabled: Bool = UserDefaults.standard.object(forKey: "enabled") as? Bool ?? true {
         didSet { UserDefaults.standard.set(enabled, forKey: "enabled") }
     }
-    /// Fraction of the track that must be played before scrobbling (Last.fm requires ≥ 50%).
+    /// Fraction of the track that must be played before scrobbling (Last.fm's guideline is ≥ 50%).
     @Published var scrobblePercent: Double = UserDefaults.standard.object(forKey: "scrobblePercent") as? Double ?? 0.5 {
         didSet { UserDefaults.standard.set(scrobblePercent, forKey: "scrobblePercent") }
     }
@@ -55,6 +55,8 @@ final class ScrobbleEngine: ObservableObject {
     @Published private(set) var queue: [QueuedScrobble] = []
     @Published private(set) var status: String = ""
     @Published private(set) var avatar: NSImage?
+    /// Whether we may ask Music for position/artwork. When denied, position is only an estimate.
+    @Published private(set) var musicAccess: MusicBridge.Access = .notDetermined
 
     private let observer = MusicObserver()
     private let bridge = MusicBridge()
@@ -87,6 +89,13 @@ final class ScrobbleEngine: ObservableObject {
             Task { @MainActor in self?.handle(track: track, state: state) }
         }
         observer.start()
+        Task {
+            await refreshMusicAccess(ask: true)
+            // Music only notifies on changes, so pick up whatever is already playing.
+            if let snap = await bridge.snapshot(), originalTrack == nil {
+                handle(track: snap.track, state: snap.state, alreadyPlayed: snap.position)
+            }
+        }
 
         timers = [
             Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
@@ -102,9 +111,21 @@ final class ScrobbleEngine: ObservableObject {
 
     private var avatarInFlight = false
 
-    /// Called when the menu opens — retries if the first fetch failed (e.g. offline at launch).
-    func loadAvatarIfNeeded() {
+    /// Called when the menu opens: retry the avatar if it failed, and notice if the user has
+    /// since granted Music access in System Settings.
+    func panelOpened() {
         if avatar == nil { loadAvatar() }
+        if musicAccess != .granted { Task { await refreshMusicAccess(ask: false) } }
+    }
+
+    func refreshMusicAccess(ask: Bool) async {
+        let access = await bridge.checkAccess(ask: ask)
+        let gained = access == .granted && musicAccess != .granted
+        musicAccess = access
+        if gained, let t = currentTrack {
+            syncPosition()
+            if artwork == nil { loadArtwork(for: t) }
+        }
     }
 
     private func loadAvatar() {
@@ -141,18 +162,19 @@ final class ScrobbleEngine: ObservableObject {
         return t
     }
 
-    private func handle(track raw: Track?, state: PlayerState) {
+    /// `alreadyPlayed` is used when we join a track mid-way (app launched while Music was playing).
+    private func handle(track raw: Track?, state: PlayerState, alreadyPlayed: TimeInterval = 0) {
         let isNew = !sameTrack(raw, originalTrack)
         if isNew {
-            accumulated = 0
+            accumulated = alreadyPlayed
             playStartedAt = nil
             currentScrobbled = false
             currentOverride = nil
             currentHistoryID = nil
-            positionAnchor = (0, Date())
-            position = 0
+            positionAnchor = (alreadyPlayed, Date())
+            position = alreadyPlayed
             artwork = nil
-            trackStartTimestamp = Int(Date().timeIntervalSince1970)
+            trackStartTimestamp = Int(Date().timeIntervalSince1970 - alreadyPlayed)
         }
         originalTrack = raw
         currentTrack = currentOverride ?? raw.map(corrected)
@@ -170,7 +192,12 @@ final class ScrobbleEngine: ObservableObject {
             playStartedAt = nil
         }
 
-        if isNew, let t = currentTrack { loadArtwork(for: t) }
+        if isNew, let t = currentTrack {
+            if musicAccess == .notDetermined || musicAccess == .musicNotRunning {
+                Task { await refreshMusicAccess(ask: true) }
+            }
+            loadArtwork(for: t)
+        }
         syncPosition()
         tick()
     }
@@ -211,7 +238,7 @@ final class ScrobbleEngine: ObservableObject {
     /// Track must be > 30s; scrobble after `scrobblePercent` of its length, or 4 minutes if capped.
     func threshold(for track: Track) -> TimeInterval? {
         guard track.duration > 30 else { return nil }
-        let point = track.duration * min(max(scrobblePercent, 0.5), 1)
+        let point = track.duration * min(max(scrobblePercent, 0), 1)
         return capAtFourMinutes ? min(point, 240) : point
     }
 

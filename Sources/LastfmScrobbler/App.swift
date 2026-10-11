@@ -41,10 +41,43 @@ enum AuxWindow {
         windows.removeValue(forKey: id)?.close()
     }
 
-    static func showSettings(_ engine: ScrobbleEngine) {
-        show(id: "settings", title: "Last.fm Scrobbler Settings") {
-            SettingsView().environmentObject(engine)
+    /// Standard macOS settings window: toolbar tabs, title follows the selected tab.
+    static func showSettings(_ engine: ScrobbleEngine, tab: SettingsTab? = nil) {
+        let window = windows["settings"] ?? {
+            let tabs = NSTabViewController()
+            tabs.tabStyle = .toolbar
+            for t in SettingsTab.allCases {
+                let host: NSViewController
+                switch t {
+                case .general: host = hosting(GeneralSettingsView().environmentObject(engine))
+                case .appearance: host = hosting(AppearanceSettingsView())
+                case .account: host = hosting(AccountSettingsView().environmentObject(engine))
+                }
+                host.title = t.title
+                let item = NSTabViewItem(viewController: host)
+                item.label = t.title
+                item.image = NSImage(systemSymbolName: t.symbol, accessibilityDescription: t.title)
+                tabs.addTabViewItem(item)
+            }
+            let w = NSWindow(contentViewController: tabs)
+            w.styleMask = [.titled, .closable]
+            w.toolbarStyle = .preference
+            w.isReleasedWhenClosed = false
+            w.center()
+            windows["settings"] = w
+            return w
+        }()
+        if let tab, let tabs = window.contentViewController as? NSTabViewController {
+            tabs.selectedTabViewItemIndex = tab.rawValue
         }
+        NSApp.activate(ignoringOtherApps: true)
+        window.makeKeyAndOrderFront(nil)
+    }
+
+    private static func hosting<V: View>(_ view: V) -> NSViewController {
+        let host = NSHostingController(rootView: view)
+        host.sizingOptions = .preferredContentSize
+        return host
     }
 
     static func showEdit(_ target: EditTarget, engine: ScrobbleEngine) {
